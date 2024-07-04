@@ -1,6 +1,7 @@
 "use server";
 import { AssistantResponse } from "ai";
-import { openai, assistantId } from "@/app/openai-config";
+import { env } from "@/env.mjs";
+// import { openai, assistantId } from "@/app/openai-config";
 // import { MessageContentText } from "openai/resources/beta/threads/messages/messages";
 // import { env } from "@/env.mjs";
 // import { NextRequest } from "next/server";
@@ -13,14 +14,25 @@ import { openai, assistantId } from "@/app/openai-config";
 //   file: z.instanceof(Blob),
 // });
 
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: env.OPENAI_API_KEY,
+});
+
+// Extract the assistant ID
+const assistantId = env.OPENAI_ASSISTANT_ID;
+console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY);
+console.log("OPENAI_ASSISTANT_ID:", process.env.OPENAI_ASSISTANT_ID);
+
 export async function POST(req: Request) {
+  console.log(req);
   const input: {
     threadId: string | null;
     message: string;
   } = await req.json();
 
   const threadId = input.threadId ?? (await openai.beta.threads.create({})).id;
-  console.log(threadId);
 
   const createdMessage = await openai.beta.threads.messages.create(threadId, {
     role: "user",

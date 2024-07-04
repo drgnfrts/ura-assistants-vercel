@@ -1,10 +1,48 @@
 "use client";
 import { Message } from "ai/react";
 import { useAssistant } from "ai/react";
+import React, { useState } from "react";
 
 export default function Chat() {
   const { status, messages, input, submitMessage, handleInputChange } =
-    useAssistant({ api: "@/app/api/assistant" });
+    useAssistant({ api: "/api/assistant" });
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!file) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      setUploadStatus("Uploading...");
+      const response = await fetch("/api/file-upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUploadStatus("Upload successful");
+        console.log("File uploaded successfully:", data);
+      } else {
+        setUploadStatus("Upload failed");
+        console.error("Error uploading file:", response.statusText);
+      }
+    } catch (error) {
+      setUploadStatus("Upload failed");
+      console.error("Error uploading file:", error);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -14,7 +52,7 @@ export default function Chat() {
         {messages.map((message: Message) => (
           <div key={message.id} className="flex flex-row gap-2">
             <div className="w-24 text-zinc-500">{`${message.role}: `}</div>
-            <div className="w-full">{message.content}</div>
+            <div className="w-full text-white">{message.content}</div>
           </div>
         ))}
       </div>
@@ -27,6 +65,20 @@ export default function Chat() {
           className="bg-zinc-100 w-full p-2"
         />
       </form>
+      <div className="flex flex-col gap-2 p-2">
+        <input
+          type="file"
+          onChange={handleFileChange}
+          className="bg-zinc-100 p-2"
+        />
+        <button
+          onClick={handleFileUpload}
+          className="bg-blue-500 text-white p-2"
+        >
+          Upload File
+        </button>
+        {uploadStatus && <div>{uploadStatus}</div>}
+      </div>
     </div>
   );
 }
