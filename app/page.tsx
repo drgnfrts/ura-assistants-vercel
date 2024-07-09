@@ -1,306 +1,223 @@
 "use client";
+
+import { Button } from "@/components/button";
+import { Icons } from "@/components/icons";
+import { Input } from "@/components/input";
+import { readDataStream } from "@/lib/read-data-stream";
 import { Message } from "ai/react";
-import { useAssistant } from "ai/react";
-import React, { useState } from "react";
+import { ChangeEvent, FormEvent, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import { motion } from "framer-motion";
+import FileHandler from "@/components/file-upload";
+import { AssistantStatus } from "ai/react";
 
-export default function Chat() {
-  const { status, messages, input, submitMessage, handleInputChange } =
-    useAssistant({ api: "/api/assistant" });
-  const [file, setFile] = useState<File | null>(null);
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+const roleToColorMap: Record<Message["role"], string> = {
+  system: "lightred",
+  user: "white",
+  function: "lightblue",
+  assistant: "lightgreen",
+};
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
+const DotAnimation = () => {
+  const dotVariants = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1, transition: { duration: 0.5 } },
+    exit: { opacity: 0, transition: { duration: 0.5 } },
   };
 
-  const handleFileUpload = async () => {
-    if (!file) {
-      return;
-    }
+  // Stagger children animations
+  const containerVariants = {
+    initial: { transition: { staggerChildren: 0 } },
+    animate: { transition: { staggerChildren: 0.5, staggerDirection: 1 } },
+    exit: { transition: { staggerChildren: 0.5, staggerDirection: 1 } },
+  };
+
+  const [key, setKey] = useState(0);
+
+  // ...
+  return (
+    <motion.div
+      key={key}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      className="flex gap-x-0.5 -ml-1"
+      variants={containerVariants}
+      onAnimationComplete={() => setKey((prevKey) => prevKey + 1)}
+    >
+      {[...Array(3)].map((_, i) => (
+        <motion.span key={i} variants={dotVariants}>
+          .
+        </motion.span>
+      ))}
+    </motion.div>
+  );
+};
+
+export default function Chat() {
+  const prompt = "Ask GPT your questions - remember to upload your .csv";
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [message, setMessage] = useState<string>(prompt);
+  const [file, setFile] = useState<File | undefined>(undefined);
+  const [threadId, setThreadId] = useState<string>("");
+  const [error, setError] = useState<unknown | undefined>(undefined);
+  const [status, setStatus] = useState<AssistantStatus>("awaiting_message");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFormSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    setStatus("in_progress");
+
+    setMessages((messages: Message[]) => [
+      ...messages,
+      { id: "", role: "user" as "user", content: message! },
+    ]);
 
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("message", message as string);
+    formData.append("threadId", threadId);
+    formData.append("file", file as File);
+
+    const result = await fetch("/api/assistant", {
+      method: "POST",
+      body: formData,
+    });
+
+    setFile(undefined);
+
+    if (result.body == null) {
+      throw new Error("The response body is empty.");
+    }
 
     try {
-      setUploadStatus("Uploading...");
-      const response = await fetch("/api/file-upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUploadStatus("Upload successful");
-        console.log("File uploaded successfully:", data);
-      } else {
-        setUploadStatus("Upload failed");
-        console.error("Error uploading file:", response.statusText);
+      for await (const { type, value } of readDataStream(
+        result.body.getReader()
+      )) {
+        switch (type) {
+          case "assistant_message": {
+            setMessages((messages: Message[]) => [
+              ...messages,
+              {
+                id: value.id,
+                role: value.role,
+                content: value.content[0].text.value,
+              },
+            ]);
+            break;
+          }
+          case "assistant_control_data": {
+            setThreadId(value.threadId);
+            setMessages((messages: Message[]) => {
+              const lastMessage = messages[messages.length - 1];
+              lastMessage.id = value.messageId;
+              return [...messages.slice(0, messages.length - 1), lastMessage];
+            });
+            break;
+          }
+          case "error": {
+            setError(value);
+            break;
+          }
+        }
       }
     } catch (error) {
-      setUploadStatus("Upload failed");
-      console.error("Error uploading file:", error);
+      setError(error);
     }
+
+    setStatus("awaiting_message");
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setFile(file);
+  };
+
+  const handleMessageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setMessage(e.target.value);
+  };
+
+  const handleOpenFileExplorer = () => {
+    fileInputRef.current?.click();
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="p-2">status: {status}</div>
+    <main className="flex min-h-screen flex-col p-24">
+      <div className="flex flex-col w-full max-w-xl mx-auto stretch">
+        <h1 className="text-3xl text-zinc-100 font-extrabold pb-4">
+          Feedback Analytics Assistant
+        </h1>
+        {error != null && (
+          <div className="relative bg-red-500 text-white px-6 py-4 rounded-md">
+            <span className="block sm:inline">
+              Error: {(error as any).toString()}
+            </span>
+          </div>
+        )}
 
-      <div className="flex flex-col p-2 gap-2">
-        {messages.map((message: Message) => (
-          <div key={message.id} className="flex flex-row gap-2">
-            <div className="w-24 text-zinc-500">{`${message.role}: `}</div>
-            <div className="w-full text-white">{message.content}</div>
+        {messages.map((m: Message) => (
+          <div
+            key={m.id}
+            className="whitespace-pre-wrap"
+            style={{ color: roleToColorMap[m.role] }}
+          >
+            <strong>{`${m.role}: `}</strong>
+            <ReactMarkdown>{m.content}</ReactMarkdown>
+            <br />
+            <br />
           </div>
         ))}
-      </div>
 
-      <form onSubmit={submitMessage} className="fixed bottom-0 p-2 w-full">
-        <input
-          disabled={status !== "awaiting_message"}
-          value={input}
-          onChange={handleInputChange}
-          className="bg-zinc-100 w-full p-2"
-        />
-      </form>
-      <div className="flex flex-col gap-2 p-2">
-        <input
-          type="file"
-          onChange={handleFileChange}
-          className="bg-zinc-100 p-2"
-        />
-        <button
-          onClick={handleFileUpload}
-          className="bg-blue-500 text-white p-2"
+        {status === "in_progress" && (
+          <span className="text-white flex gap-x-2">
+            <Icons.spinner className="animate-spin w-5 h-5" />
+            Reading
+            <DotAnimation />
+          </span>
+        )}
+
+        <form
+          onSubmit={handleFormSubmit}
+          className="flex items-start flex-col p-4 pb-2 text-white max-w-xl bg-black mx-auto fixed bottom-0 w-full mb-8 border border-gray-300 rounded-xl shadow-xl"
         >
-          Upload File
-        </button>
-        {uploadStatus && <div>{uploadStatus}</div>}
+          <div className="flex items-start w-full">
+            <Input
+              disabled={status !== "awaiting_message"}
+              className="flex-1 placeholder:text-white bg-neutral-900"
+              placeholder={prompt}
+              onChange={handleMessageChange}
+            />
+            <Button
+              className="flex-0 ml-2 cursor-pointer"
+              variant="ghost"
+              type="submit"
+              disabled={status !== "awaiting_message"}
+            >
+              <Icons.arrowRight className="text-gray-200 hover:text-white transition-colors duration-200 ease-in-out" />
+            </Button>
+          </div>
+          <FileHandler />
+          {/* <Button
+            type="button"
+            disabled={status !== "awaiting_message"}
+            onClick={handleOpenFileExplorer}
+            className="flex gap-x-1 group cursor-pointer text-gray-200 px-1 pb-0"
+          >
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="sr-only"
+            />
+            <Icons.paperClip className="group-hover:text-white transition-colors duration-200 ease-in-out w-4 h-4" />
+            <span className="group-hover:text-white transition-colors duration-200 ease-in-out text-xs">
+              {file ? file.name : "Add a file"}
+            </span>
+          </Button> */}
+        </form>
       </div>
-    </div>
+    </main>
   );
 }
-
-// "use client";
-
-// import { Button } from "@/components/button";
-// import { Icons } from "@/components/icons";
-// import { Input } from "@/components/input";
-// import { readDataStream } from "@/lib/read-data-stream";
-// import { Message, useAssistant } from "ai/react";
-// import { ChangeEvent, FormEvent, useRef, useState } from "react";
-// import ReactMarkdown from "react-markdown";
-// import { motion } from "framer-motion";
-
-// const roleToColorMap: Record<Message["role"], string> = {
-//   system: "lightred",
-//   user: "white",
-//   function: "lightblue",
-//   assistant: "lightgreen",
-// };
-
-// const DotAnimation = () => {
-//   const dotVariants = {
-//     initial: { opacity: 0 },
-//     animate: { opacity: 1, transition: { duration: 0.5 } },
-//     exit: { opacity: 0, transition: { duration: 0.5 } },
-//   };
-
-//   // Stagger children animations
-//   const containerVariants = {
-//     initial: { transition: { staggerChildren: 0 } },
-//     animate: { transition: { staggerChildren: 0.5, staggerDirection: 1 } },
-//     exit: { transition: { staggerChildren: 0.5, staggerDirection: 1 } },
-//   };
-
-//   const [key, setKey] = useState(0);
-
-//   // ...
-//   return (
-//     <motion.div
-//       key={key}
-//       initial="initial"
-//       animate="animate"
-//       exit="exit"
-//       className="flex gap-x-0.5 -ml-1"
-//       variants={containerVariants}
-//       onAnimationComplete={() => setKey((prevKey) => prevKey + 1)}
-//     >
-//       {[...Array(3)].map((_, i) => (
-//         <motion.span key={i} variants={dotVariants}>
-//           .
-//         </motion.span>
-//       ))}
-//     </motion.div>
-//   );
-// };
-
-// const Chat = () => {
-//   const prompt = "Ask GPT your questions - remember to upload your .csv";
-//   const [messages, setMessages] = useState<Message[]>([]);
-//   const [message, setMessage] = useState<string>(prompt);
-//   const [file, setFile] = useState<File | undefined>(undefined);
-//   const [threadId, setThreadId] = useState<string>("");
-//   const [error, setError] = useState<unknown | undefined>(undefined);
-//   const [status, setStatus] = useState<AssistantStatus>("awaiting_message");
-//   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-//   const handleFormSubmit = async (e: FormEvent) => {
-//     e.preventDefault();
-
-//     setStatus("in_progress");
-
-//     setMessages((messages: Message[]) => [
-//       ...messages,
-//       { id: "", role: "user" as "user", content: message! },
-//     ]);
-
-//     const formData = new FormData();
-//     formData.append("message", message as string);
-//     formData.append("threadId", threadId);
-//     formData.append("file", file as File);
-
-//     const result = await fetch("/api/assistant", {
-//       method: "POST",
-//       body: formData,
-//     });
-
-//     setFile(undefined);
-
-//     if (result.body == null) {
-//       throw new Error("The response body is empty.");
-//     }
-
-//     try {
-//       for await (const { type, value } of readDataStream(
-//         result.body.getReader()
-//       )) {
-//         switch (type) {
-//           case "assistant_message": {
-//             setMessages((messages: Message[]) => [
-//               ...messages,
-//               {
-//                 id: value.id,
-//                 role: value.role,
-//                 content: value.content[0].text.value,
-//               },
-//             ]);
-//             break;
-//           }
-//           case "assistant_control_data": {
-//             setThreadId(value.threadId);
-//             setMessages((messages: Message[]) => {
-//               const lastMessage = messages[messages.length - 1];
-//               lastMessage.id = value.messageId;
-//               return [...messages.slice(0, messages.length - 1), lastMessage];
-//             });
-//             break;
-//           }
-//           case "error": {
-//             setError(value);
-//             break;
-//           }
-//         }
-//       }
-//     } catch (error) {
-//       setError(error);
-//     }
-
-//     setStatus("awaiting_message");
-//   };
-
-//   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-//     const file = e.target.files?.[0];
-//     setFile(file);
-//   };
-
-//   const handleMessageChange = (e: ChangeEvent<HTMLInputElement>) => {
-//     setMessage(e.target.value);
-//   };
-
-//   const handleOpenFileExplorer = () => {
-//     fileInputRef.current?.click();
-//   };
-
-//   return (
-//     <main className="flex min-h-screen flex-col p-24">
-//       <div className="flex flex-col w-full max-w-xl mx-auto stretch">
-//         <h1 className="text-3xl text-zinc-100 font-extrabold pb-4">
-//           Feedback Analytics Assistant
-//         </h1>
-//         {error != null && (
-//           <div className="relative bg-red-500 text-white px-6 py-4 rounded-md">
-//             <span className="block sm:inline">
-//               Error: {(error as any).toString()}
-//             </span>
-//           </div>
-//         )}
-
-//         {messages.map((m: Message) => (
-//           <div
-//             key={m.id}
-//             className="whitespace-pre-wrap"
-//             style={{ color: roleToColorMap[m.role] }}
-//           >
-//             <strong>{`${m.role}: `}</strong>
-//             <ReactMarkdown>{m.content}</ReactMarkdown>
-//             <br />
-//             <br />
-//           </div>
-//         ))}
-
-//         {status === "in_progress" && (
-//           <span className="text-white flex gap-x-2">
-//             <Icons.spinner className="animate-spin w-5 h-5" />
-//             Reading
-//             <DotAnimation />
-//           </span>
-//         )}
-
-//         <form
-//           onSubmit={handleFormSubmit}
-//           className="flex items-start flex-col p-4 pb-2 text-white max-w-xl bg-black mx-auto fixed bottom-0 w-full mb-8 border border-gray-300 rounded-xl shadow-xl"
-//         >
-//           <div className="flex items-start w-full">
-//             <Input
-//               disabled={status !== "awaiting_message"}
-//               className="flex-1 placeholder:text-white bg-neutral-900"
-//               placeholder={prompt}
-//               onChange={handleMessageChange}
-//             />
-//             <Button
-//               className="flex-0 ml-2 cursor-pointer"
-//               variant="ghost"
-//               type="submit"
-//               disabled={status !== "awaiting_message"}
-//             >
-//               <Icons.arrowRight className="text-gray-200 hover:text-white transition-colors duration-200 ease-in-out" />
-//             </Button>
-//           </div>
-
-//           <Button
-//             type="button"
-//             disabled={status !== "awaiting_message"}
-//             onClick={handleOpenFileExplorer}
-//             className="flex gap-x-1 group cursor-pointer text-gray-200 px-1 pb-0"
-//           >
-//             <input
-//               type="file"
-//               ref={fileInputRef}
-//               onChange={handleFileChange}
-//               className="sr-only"
-//             />
-//             <Icons.paperClip className="group-hover:text-white transition-colors duration-200 ease-in-out w-4 h-4" />
-//             <span className="group-hover:text-white transition-colors duration-200 ease-in-out text-xs">
-//               {file ? file.name : "Add a file"}
-//             </span>
-//           </Button>
-//         </form>
-//       </div>
-//     </main>
-//   );
-// };
 
 // export default Chat;
