@@ -40,10 +40,15 @@ export async function POST(request: NextRequest) {
 
   // Link the uploaded file to the assistant
   await linkFileToAssistant(openaiFile.id);
+  const fileDetails = await openai.files.retrieve(openaiFile.id);
 
-  return new NextResponse(JSON.stringify({ file_id: openaiFile.id }), {
-    status: 200,
-  });
+  return new NextResponse(
+    JSON.stringify({
+      file_id: openaiFile.id,
+      filename: fileDetails.filename,
+    }),
+    { status: 200 }
+  );
 }
 
 export async function GET() {

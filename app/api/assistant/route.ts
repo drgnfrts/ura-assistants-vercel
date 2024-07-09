@@ -26,7 +26,6 @@ console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY);
 console.log("OPENAI_ASSISTANT_ID:", process.env.OPENAI_ASSISTANT_ID);
 
 export async function POST(req: Request) {
-  console.log(req);
   const input: {
     threadId: string | null;
     message: string;
@@ -39,14 +38,97 @@ export async function POST(req: Request) {
     content: input.message,
   });
 
+  // We use the stream SDK helper to create a run with
+  // streaming. The SDK provides helpful event listeners to handle
+  // the streamed response.
+
+  const run = openai.beta.threads.runs
+    .stream(thread.id, {
+      assistant_id: assistant.id,
+    })
+    .on("textCreated", (text) => process.stdout.write("\nassistant > "))
+    .on("textDelta", (textDelta, snapshot) =>
+      process.stdout.write(textDelta.value)
+    )
+    .on("toolCallCreated", (toolCall) =>
+      process.stdout.write(`\nassistant > ${toolCall.type}\n\n`)
+    )
+    .on("toolCallDelta", (toolCallDelta, snapshot) => {
+      if (toolCallDelta.type === "code_interpreter") {
+        if (toolCallDelta.code_interpreter.input) {
+          process.stdout.write(toolCallDelta.code_interpreter.input);
+        }
+        if (toolCallDelta.code_interpreter.outputs) {
+          process.stdout.write("\noutput >\n");
+          toolCallDelta.code_interpreter.outputs.forEach((output) => {
+            if (output.type === "logs") {
+              process.stdout.write(`\n${output.logs}\n`);
+            }
+          });
+        }
+      }
+    });
+
   return AssistantResponse(
     { threadId, messageId: createdMessage.id },
-    async ({ forwardStream }) => {
+    async ({ forwardStream, sendDataMessage }) => {
+      let finalText = "";
+      let citations: string[] = [];
+
       const runStream = openai.beta.threads.runs.stream(threadId, {
-        assistant_id: assistantId,
+        assistant_id:
+          assistantId ??
+          (() => {
+            throw new Error("ASSISTANT_ID is not set");
+          })(),
+      });
+
+      let textDonePromise = new Promise<void>((resolve) => {
+        runStream.on(
+          "textDone",
+          async (text: OpenAI.Beta.Threads.Messages.Text) => {
+            const { annotations } = text;
+            let updatedText = text.value;
+            const updatedCitations: string[] = [];
+
+            let index = 0;
+            for (let annotation of annotations) {
+              updatedText = updatedText.replace(
+                annotation.text,
+                "[" + index + "]"
+              );
+              // @ts-ignore
+              const { file_citation } = annotation;
+              if (file_citation) {
+                const citedFile = await openai.files.retrieve(
+                  file_citation.file_id
+                );
+                updatedCitations.push("[" + index + "]" + citedFile.filename);
+              }
+              index++;
+            }
+
+            finalText = updatedText;
+            citations = updatedCitations;
+
+            resolve();
+          }
+        );
       });
 
       await forwardStream(runStream);
+      await textDonePromise;
+
+      // Send the modified text and citations back to the client
+      if (citations.length > 0) {
+        sendDataMessage({
+          data: {
+            finalText,
+            citations,
+          },
+          role: "data",
+        });
+      }
     }
   );
 }
