@@ -8,7 +8,7 @@ import { Message } from "ai/react";
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
-import FileHandler from "@/components/file-upload";
+import InputBox from "@/components/input-box";
 import { AssistantStatus } from "ai/react";
 
 const roleToColorMap: Record<Message["role"], string> = {
@@ -175,12 +175,9 @@ export default function Chat() {
             <DotAnimation />
           </span>
         )}
-
-        <form
-          onSubmit={handleFormSubmit}
-          className="flex items-start flex-col p-4 pb-2 text-white max-w-xl bg-black mx-auto fixed bottom-0 w-full mb-8 border border-gray-300 rounded-xl shadow-xl"
-        >
-          <div className="flex items-start w-full">
+        <InputBox />
+        {/* <div className="flex items-start flex-col p-4 pb-2 text-white max-w-xl bg-black mx-auto fixed bottom-0 w-full mb-8 border border-gray-300 rounded-xl shadow-xl">
+          <form className="flex items-start w-full" onSubmit={handleFormSubmit}>
             <Input
               disabled={status !== "awaiting_message"}
               className="flex-1 placeholder:text-white bg-neutral-900"
@@ -195,26 +192,9 @@ export default function Chat() {
             >
               <Icons.arrowRight className="text-gray-200 hover:text-white transition-colors duration-200 ease-in-out" />
             </Button>
-          </div>
+          </form>
           <FileHandler />
-          {/* <Button
-            type="button"
-            disabled={status !== "awaiting_message"}
-            onClick={handleOpenFileExplorer}
-            className="flex gap-x-1 group cursor-pointer text-gray-200 px-1 pb-0"
-          >
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="sr-only"
-            />
-            <Icons.paperClip className="group-hover:text-white transition-colors duration-200 ease-in-out w-4 h-4" />
-            <span className="group-hover:text-white transition-colors duration-200 ease-in-out text-xs">
-              {file ? file.name : "Add a file"}
-            </span>
-          </Button> */}
-        </form>
+        </div> */}
       </div>
     </main>
   );
