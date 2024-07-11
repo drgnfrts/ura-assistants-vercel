@@ -1,14 +1,14 @@
 "use client";
 
-import { Button } from "@/components/button";
-import { Icons } from "@/components/icons";
-import { Input } from "@/components/input";
+import { Button } from "@/app/components/button";
+import { Icons } from "@/app/components/icons";
+import { Input } from "@/app/components/input";
 import { readDataStream } from "@/lib/read-data-stream";
 import { Message } from "ai/react";
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
-import InputBox from "@/components/input-box";
+import InputBox from "@/app/components/input-box";
 import { AssistantStatus } from "ai/react";
 
 const roleToColorMap: Record<Message["role"], string> = {

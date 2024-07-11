@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/button";
-import { Icons } from "@/components/icons";
+import { Button } from "@/app/components/button";
+import { Icons } from "@/app/components/icons";
 
 type FileState = {
   filename: string;

@@ -2,29 +2,36 @@ import React, { useState, useRef, useEffect } from "react";
 import { AssistantStream } from "openai/lib/AssistantStream";
 import { Icons } from "./icons";
 
-export default function MessageForm({ onSubmit, inputDisabled }) {
-  const [messages, setMessages] = useState([]);
+interface MessageFormProps {
+  inputDisabled: boolean;
+  onInputDisabledChange: (disabled: boolean) => void;
+}
+
+const MessageForm: React.FC<MessageFormProps> = ({
+  inputDisabled,
+  onInputDisabledChange,
+}) => {
   const [userInput, setUserInput] = useState("");
-  const textareaRef = useRef(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   useEffect(() => {
     const textarea = textareaRef.current;
+    if (!textarea) return;
     const handleInput = () => {
       textarea.style.height = "auto";
       textarea.style.height = textarea.scrollHeight + "px";
     };
-
     textarea.addEventListener("input", handleInput);
-
     return () => {
       textarea.removeEventListener("input", handleInput);
     };
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!userInput.trim()) return;
-    onSubmit(userInput);
     setUserInput("");
+    onInputDisabledChange(true);
   };
 
   return (
@@ -51,4 +58,6 @@ export default function MessageForm({ onSubmit, inputDisabled }) {
       </button>
     </form>
   );
-}
+};
+
+export default MessageForm;
