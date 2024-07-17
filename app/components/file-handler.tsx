@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/app/components/button";
 import { Icons } from "@/app/components/icons";
+import createThread from "@/app/api/actions";
 
 type FileState = {
   filename: string;
@@ -50,6 +51,7 @@ export default function FileHandler() {
       if (response.ok) {
         const result = await response.json();
         setFile(result);
+        createThread();
       } else {
         console.error("File upload failed:", response.statusText);
       }

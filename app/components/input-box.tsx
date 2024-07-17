@@ -1,4 +1,4 @@
-import FileHandler from "./file-upload";
+import FileHandler from "./file-handler";
 import MessageForm from "./message-upload";
 import React, { useState } from "react";
 
