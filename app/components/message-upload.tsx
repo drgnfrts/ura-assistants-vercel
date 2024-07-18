@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { AssistantStream } from "openai/lib/AssistantStream";
 import { Icons } from "./icons";
-import { type AI } from "@/app/api/actions";
+import { type AI } from "@/app/lib/actions";
 
 interface MessageFormProps {
   inputDisabled: boolean;

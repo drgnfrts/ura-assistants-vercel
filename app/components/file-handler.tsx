@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/app/components/button";
 import { Icons } from "@/app/components/icons";
-import createThread from "@/app/api/actions";
+import { createThread } from "@/app/lib/actions";
 
 type FileState = {
   filename: string;
