@@ -1,6 +1,5 @@
-"use server";
+import "server-only";
 
-import { generateId } from "ai";
 import {
   createAI,
   createStreamableUI,
@@ -8,15 +7,18 @@ import {
   getMutableAIState,
   getAIState,
 } from "ai/rsc";
-import { OpenAI } from "openai";
-import { ReactNode } from "react";
-import { openai, assistantId } from "@/app/openai-config";
 import { AssistantStream } from "openai/lib/AssistantStream";
+import {
+  UserMessage,
+  BotMessage,
+  CodeMessage,
+} from "@/app/components/message-components";
+import Markdown from "react-markdown";
 
 export interface Message {
   id: string;
-  role: ReactNode;
-  text: ReactNode;
+  role: string;
+  text: string;
 }
 
 // Create new thread, wipe and refresh AI State with the threadId
@@ -78,9 +80,30 @@ export const AI = createAI<AIState, UIState>({
   actions: { sendMessage },
   initialUIState: [],
   initialAIState: { threadId: "", messages: [], generating: false },
-  // onGetUIState: async () {
-  //   const aiState = getAIState()
+  onGetUIState: async () => {
+    const aiState = getAIState();
 
-  //   // TODO: Write the conversion function to get UIState (even though we technically dont really need it...)
-  //   return aiState;
+    // TODO: Write the conversion function to get UIState (even though we technically dont really need it...)
+    const uiStateMapping = aiState.messages.map((message: Message, index) => ({
+      id: `${aiState.threadId}-${index}`,
+      display:
+        message.role === "assistant" ? (
+          <BotMessage><Markdown>{message.text}</Markdown></BotMessage>
+        ) : message.role === "user" ? (
+          <UserMessage>{message.text}</UserMessage>
+        ) : message.role === "code" ? (
+          <CodeMessage>{formatCodeText(message.text)}</CodeMessage>
+        ) : null,
+    }));
+    return uiStateMapping;
+  },
 });
+
+const formatCodeText = (text: string) => {
+  return text.split("\n").map((line, index) => (
+    <div key={index}>
+      <span>{`${index + 1}. `}</span>
+      {line}
+    </div>
+  ));
+};

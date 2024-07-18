@@ -12,7 +12,11 @@ import {
 const aiState = getMutableAIState<typeof AI>();
 let isCodeContext = false;
 
-export function handleReadableStream(stream: AssistantStream) {
+export async function handleReadableStream(stream: AssistantStream) {
+  /**
+   * Handles the server-side events stream from Assistants Streaming API and directs the streamed content to be handled for AIState update based on the event type
+   *
+   **/
   // messages - use textCreated and textDelta
   stream.on("textCreated", handleTextCreated);
   stream.on("textDelta", handleTextDelta);

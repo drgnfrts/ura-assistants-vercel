@@ -1,31 +1,28 @@
-import React from "react";
-import Markdown from "react-markdown";
+"use client";
 
-export const UserMessage = ({ text }: { text: string }) => {
+import React from "react";
+
+export function UserMessage({ children }: { children: React.ReactNode }) {
   return (
     <div className="my-2 py-2 px-4 self-end text-white bg-black rounded-[15px] max-w-[80%] break-words">
-      {text}
+      {children}
     </div>
   );
-};
+}
 
-export const AssistantMessage = ({ text }: { text: string }) => {
+export function BotMessage({ children }: { children: React.ReactNode }) {
   return (
     <div className="my-2 py-2 px-4 self-start bg-[#efefef] rounded-[15px] max-w-[80%] break-words">
-      <Markdown>{text}</Markdown>
+      {children}
     </div>
   );
-};
+}
 
-export const CodeMessage = ({ text }: { text: string }) => {
+// TODO
+export function CodeMessage({ children }: { children: React.ReactNode }) {
   return (
     <div className="my-2 py-[10px] px-4 self-start bg-[#e9e9e9] rounded-[15px] max-w-[80%] break-words font-mono counter-reset">
-      {text.split("\n").map((line, index) => (
-        <div key={index}>
-          <span>{`${index + 1}. `}</span>
-          {line}
-        </div>
-      ))}
+      {children}
     </div>
   );
-};
+}
