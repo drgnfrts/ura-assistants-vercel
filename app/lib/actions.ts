@@ -15,9 +15,8 @@ import { AssistantStream } from "openai/lib/AssistantStream";
 
 export interface Message {
   id: string;
-  status: ReactNode;
+  role: ReactNode;
   text: ReactNode;
-  gui: ReactNode;
 }
 
 // Create new thread, wipe and refresh AI State with the threadId
@@ -27,9 +26,12 @@ export async function createThread(): Promise<void> {
   });
   const data = await res.json();
   const aiState = getMutableAIState<typeof AI>();
-  aiState.update({
+
+  // Provision for saving of new thread's threadId for future use, otherwise just use .update()
+  aiState.done({
     threadId: data.threadId,
     messages: [],
+    generating: false,
   });
 }
 
@@ -39,6 +41,12 @@ export async function sendMessage(
   text: string,
   threadId: string
 ): Promise<void> {
+  const aiState = getMutableAIState<typeof AI>();
+  aiState.update({
+    ...aiState.get(),
+    generating: true,
+  });
+
   const response = await fetch(`/api/assistants/threads/${threadId}/messages`, {
     method: "POST",
     body: JSON.stringify({
@@ -63,12 +71,13 @@ export type UIState = {
 export type AIState = {
   threadId: string;
   messages: Message[];
+  generating: boolean;
 };
 
 export const AI = createAI<AIState, UIState>({
   actions: { sendMessage },
   initialUIState: [],
-  initialAIState: { threadId: "", messages: [] },
+  initialAIState: { threadId: "", messages: [], generating: false },
   // onGetUIState: async () {
   //   const aiState = getAIState()
 
