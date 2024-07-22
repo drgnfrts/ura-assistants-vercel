@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/app/components/lib/utils";
+import { AI } from "./lib/actions";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,10 +17,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={cn(inter.className, "overscroll-none bg-neutral-900")}>
-        {children}
-      </body>
-    </html>
+    <AI initialAIState={{ threadId: "", messages: [], generating: false }}>
+      <html lang="en">
+        <body className={cn(inter.className, "overscroll-none bg-neutral-900")}>
+          {children}
+        </body>
+      </html>
+    </AI>
   );
 }

@@ -1,17 +1,14 @@
+"use client";
+
 import React, { useState, useRef, useEffect } from "react";
 import { AssistantStream } from "openai/lib/AssistantStream";
 import { Icons } from "./icons";
-import { type AI } from "@/app/lib/actions";
+import { useActions, useUIState } from "ai/rsc";
+import { AI, getUIStateFromAIState, UIState } from "@/app/lib/actions";
 
-interface MessageFormProps {
-  inputDisabled: boolean;
-  onInputDisabledChange: (disabled: boolean) => void;
-}
-
-const MessageForm: React.FC<MessageFormProps> = ({
-  inputDisabled,
-  onInputDisabledChange,
-}) => {
+const MessageForm = () => {
+  // const [_, setMessages] = useUIState<typeof AI>();
+  const { sendMessage } = useActions();
   const [userInput, setUserInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -28,11 +25,10 @@ const MessageForm: React.FC<MessageFormProps> = ({
     };
   }, []);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!userInput.trim()) return;
-    setUserInput("");
-    onInputDisabledChange(true);
+    const response = await sendMessage(userInput);
   };
 
   return (
@@ -48,12 +44,12 @@ const MessageForm: React.FC<MessageFormProps> = ({
         value={userInput}
         onChange={(e) => setUserInput(e.target.value)}
         placeholder="Enter your question"
-        disabled={inputDisabled}
+        // disabled={generating}
       />
       <button
         type="submit"
         className="flex-0 ml-2 cursor-pointer"
-        disabled={inputDisabled}
+        // disabled={generating}
       >
         <Icons.arrowRight className="text-gray-200 hover:text-white transition-colors duration-200 ease-in-out" />
       </button>

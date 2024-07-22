@@ -1,5 +1,4 @@
 "use client";
-
 import { Button } from "@/app/components/button";
 import { Icons } from "@/app/components/icons";
 import { Input } from "@/app/components/input";
@@ -9,7 +8,7 @@ import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
 import InputBox from "@/app/components/input-box";
-// import { AssistantStatus } from "ai/react";
+import { AI, UIState, getUIStateFromAIState } from "@/app/lib/actions";
 
 const roleToColorMap: Record<Message["role"], string> = {
   system: "lightred",
@@ -55,91 +54,14 @@ const DotAnimation = () => {
 };
 
 export default function Chat() {
-  const prompt = "Ask GPT your questions - remember to upload your .csv";
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [message, setMessage] = useState<string>(prompt);
-  const [file, setFile] = useState<File | undefined>(undefined);
-  const [threadId, setThreadId] = useState<string>("");
+  // const prompt = "Ask GPT your questions - remember to upload your .csv";
+  // const [messages, setMessages] = useState<Message[]>([]);
+  // const [message, setMessage] = useState<string>(prompt);
+  // const [file, setFile] = useState<File | undefined>(undefined);
+  // const [threadId, setThreadId] = useState<string>("");
   const [error, setError] = useState<unknown | undefined>(undefined);
-  const [status, setStatus] = useState<AssistantStatus>("awaiting_message");
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const handleFormSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-
-    setStatus("in_progress");
-
-    setMessages((messages: Message[]) => [
-      ...messages,
-      { id: "", role: "user" as "user", content: message! },
-    ]);
-
-    const formData = new FormData();
-    formData.append("message", message as string);
-    formData.append("threadId", threadId);
-    formData.append("file", file as File);
-
-    const result = await fetch("/api/assistant", {
-      method: "POST",
-      body: formData,
-    });
-
-    setFile(undefined);
-
-    if (result.body == null) {
-      throw new Error("The response body is empty.");
-    }
-
-    try {
-      for await (const { type, value } of readDataStream(
-        result.body.getReader()
-      )) {
-        switch (type) {
-          case "assistant_message": {
-            setMessages((messages: Message[]) => [
-              ...messages,
-              {
-                id: value.id,
-                role: value.role,
-                content: value.content[0].text.value,
-              },
-            ]);
-            break;
-          }
-          case "assistant_control_data": {
-            setThreadId(value.threadId);
-            setMessages((messages: Message[]) => {
-              const lastMessage = messages[messages.length - 1];
-              lastMessage.id = value.messageId;
-              return [...messages.slice(0, messages.length - 1), lastMessage];
-            });
-            break;
-          }
-          case "error": {
-            setError(value);
-            break;
-          }
-        }
-      }
-    } catch (error) {
-      setError(error);
-    }
-
-    setStatus("awaiting_message");
-  };
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setFile(file);
-  };
-
-  const handleMessageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setMessage(e.target.value);
-  };
-
-  const handleOpenFileExplorer = () => {
-    fileInputRef.current?.click();
-  };
+  // const [status, setStatus] = useState<AssistantStatus>("awaiting_message");
+  // const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
     <main className="flex min-h-screen flex-col p-24">
@@ -155,48 +77,30 @@ export default function Chat() {
           </div>
         )}
 
-        {messages.map((m: Message) => (
-          <div
-            key={m.id}
-            className="whitespace-pre-wrap"
-            style={{ color: roleToColorMap[m.role] }}
-          >
-            <strong>{`${m.role}: `}</strong>
-            <ReactMarkdown>{m.content}</ReactMarkdown>
-            <br />
-            <br />
-          </div>
-        ))}
-
-        {status === "in_progress" && (
-          <span className="text-white flex gap-x-2">
-            <Icons.spinner className="animate-spin w-5 h-5" />
-            Reading
-            <DotAnimation />
-          </span>
-        )}
-        <InputBox />
-        {/* <div className="flex items-start flex-col p-4 pb-2 text-white max-w-xl bg-black mx-auto fixed bottom-0 w-full mb-8 border border-gray-300 rounded-xl shadow-xl">
-          <form className="flex items-start w-full" onSubmit={handleFormSubmit}>
-            <Input
-              disabled={status !== "awaiting_message"}
-              className="flex-1 placeholder:text-white bg-neutral-900"
-              placeholder={prompt}
-              onChange={handleMessageChange}
-            />
-            <Button
-              className="flex-0 ml-2 cursor-pointer"
-              variant="ghost"
-              type="submit"
-              disabled={status !== "awaiting_message"}
+        {/* {messages.map((m: Message) => (
+            <div
+              key={m.id}
+              className="whitespace-pre-wrap"
+              style={{ color: roleToColorMap[m.role] }}
             >
-              <Icons.arrowRight className="text-gray-200 hover:text-white transition-colors duration-200 ease-in-out" />
-            </Button>
-          </form>
-          <FileHandler />
-        </div> */}
+              <strong>{`${m.role}: `}</strong>
+              <ReactMarkdown>{m.content}</ReactMarkdown>
+              <br />
+              <br />
+            </div>
+          ))}
+
+          {status === "in_progress" && (
+            <span className="text-white flex gap-x-2">
+              <Icons.spinner className="animate-spin w-5 h-5" />
+              Reading
+              <DotAnimation />
+            </span>
+          )} */}
+        <InputBox />
       </div>
     </main>
+    // </AI>
   );
 }
 
