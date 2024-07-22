@@ -25,37 +25,31 @@ export interface Message {
 const baseUrl = process.env.VERCEL_URL || "http://localhost:3000";
 
 // Create new thread, wipe and refresh AI State with the threadId
-export async function createThread(): Promise<void> {
-  const aiState1 = getMutableAIState<typeof AI>();
+export async function createThread(aiState): Promise<void> {
   const res = await fetch(`${baseUrl}/api/threads`, {
     method: "POST",
   });
   // app\api\threads\[threadId]\route.ts
   const data = await res.json();
-  console.log(data);
-  aiState1.done({
-    threadId: data.threadId,
+  console.log(data["threadId"]);
+  aiState.done({
+    threadId: data["threadId"],
     messages: [],
     generating: false,
   });
-  console.log("updated!!!!!!!!!");
-
   // Provision for saving of new thread's threadId for future use, otherwise just use .update()
 }
 
 // Send message, create a run and get the Server-side Events stream response from OpenAI Assistants (Streaming) API.
 // Calls utility function to handle stream responses and update to AIState.
 export async function sendMessage(text: string): Promise<void> {
-  if (getAIState().threadId == "") {
-    createThread();
-  }
   const aiState = getMutableAIState<typeof AI>();
-  aiState.update({
-    ...aiState.get(),
-    generating: true,
-  });
+  if (getAIState().threadId == "") {
+    await createThread(aiState);
+    console.log(`threadId created is: ${getAIState("threadId")}`);
+  }
 
-  const threadId = getAIState().threadId;
+  const threadId = getAIState("threadId");
   console.log(`updated, threadId is ${threadId} `);
 
   const response = await fetch(`${baseUrl}/api/threads/${threadId}/messages`, {
@@ -71,8 +65,9 @@ export async function sendMessage(text: string): Promise<void> {
     throw new Error("Response body is null");
   }
   const stream = AssistantStream.fromReadableStream(response.body);
-  handleReadableStream(stream);
-  console.log(aiState);
+  console.log(stream);
+  await handleReadableStream(stream, aiState);
+  console.log(getAIState());
 }
 
 export type UIState = {
