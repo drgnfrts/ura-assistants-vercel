@@ -5,10 +5,10 @@ import { Input } from "@/app/components/input";
 // import { readDataStream } from "@/lib/read-data-stream";
 import { Message } from "ai/react";
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+// import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
 import InputBox from "@/app/components/input-box";
-import { AI, UIState, getUIStateFromAIState } from "@/app/lib/actions";
+import { useUIState } from "ai/rsc";
 
 const roleToColorMap: Record<Message["role"], string> = {
   system: "lightred",
@@ -62,6 +62,11 @@ export default function Chat() {
   const [error, setError] = useState<unknown | undefined>(undefined);
   // const [status, setStatus] = useState<AssistantStatus>("awaiting_message");
   // const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [messages, setMessages] = useUIState();
+  console.log(messages.length);
+  for (let i = 0; i < messages.length; i++) {
+    console.log("UIState id:", messages[i].id);
+  }
 
   return (
     <main className="flex min-h-screen flex-col p-24">
@@ -77,30 +82,17 @@ export default function Chat() {
           </div>
         )}
 
-        {/* {messages.map((m: Message) => (
-            <div
-              key={m.id}
-              className="whitespace-pre-wrap"
-              style={{ color: roleToColorMap[m.role] }}
-            >
-              <strong>{`${m.role}: `}</strong>
-              <ReactMarkdown>{m.content}</ReactMarkdown>
-              <br />
-              <br />
-            </div>
-          ))}
-
-          {status === "in_progress" && (
-            <span className="text-white flex gap-x-2">
-              <Icons.spinner className="animate-spin w-5 h-5" />
-              Reading
-              <DotAnimation />
-            </span>
-          )} */}
+        {messages && messages.length > 0 ? (
+          messages.map((m) => {
+            console.log("message generating", m.id);
+            return <div key={m.id}>{m.display}</div>;
+          })
+        ) : (
+          <p className="text-white">No messages to display</p>
+        )}
         <InputBox />
       </div>
     </main>
-    // </AI>
   );
 }
 

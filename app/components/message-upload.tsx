@@ -1,16 +1,15 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { AssistantStream } from "openai/lib/AssistantStream";
 import { Icons } from "./icons";
 import { useActions, useUIState } from "ai/rsc";
-import { AI, getUIStateFromAIState, UIState } from "@/app/lib/actions";
 
 const MessageForm = () => {
   // const [_, setMessages] = useUIState<typeof AI>();
   const { sendMessage } = useActions();
   const [userInput, setUserInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [messages, setMessages] = useUIState();
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -28,6 +27,8 @@ const MessageForm = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!userInput.trim()) return;
+    const newInput = userInput.trim();
+    setUserInput("");
     const response = await sendMessage(userInput);
   };
 

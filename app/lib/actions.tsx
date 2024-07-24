@@ -1,6 +1,12 @@
 "use server";
 
-import { createAI, getMutableAIState, getAIState } from "ai/rsc";
+import {
+  createAI,
+  getMutableAIState,
+  getAIState,
+  createStreamableUI,
+  createStreamableValue,
+} from "ai/rsc";
 import { AssistantStream } from "openai/lib/AssistantStream";
 import {
   UserMessage,
@@ -8,7 +14,7 @@ import {
   CodeMessage,
 } from "@/app/components/message-components";
 import Markdown from "react-markdown";
-import { handleReadableStream, appendMessage } from "./stream-utils";
+import { generateId } from "ai";
 
 const baseUrl = process.env.VERCEL_URL || "http://localhost:3000";
 
@@ -31,7 +37,7 @@ export async function createThread(aiState): Promise<void> {
     method: "POST",
   });
   const data = await res.json();
-  console.log(data["threadId"]);
+  // console.log(data["threadId"]);
   aiState.done({
     threadId: data["threadId"],
     messages: [],
@@ -39,7 +45,7 @@ export async function createThread(aiState): Promise<void> {
   });
 }
 
-export async function sendMessage(text: string): Promise<void> {
+export async function sendMessage(text: string) {
   /**
    * Creates or calls thread, sends message, create a run and get the Server-side Events stream response from OpenAI Assistants (Streaming) API.
    * Calls utility function to handle stream responses and updates AI State.
@@ -74,9 +80,48 @@ export async function sendMessage(text: string): Promise<void> {
   if (!response.body) {
     throw new Error("Response body is null");
   }
+
+  // STREAM HANDLERS (Sean, when Vercel comes up with useAssistant / assistantResponse integrations for Code Interpreter, you won't need these anymore - in fact you can probably throw away the POST requests as well)
+
   const stream = AssistantStream.fromReadableStream(response.body);
-  await handleReadableStream(stream, aiState);
-  console.log(getAIState());
+  let isCodeContext = false;
+
+  stream.on("textCreated", (content) => {
+    isCodeContext = false;
+    appendMessage("assistant", "", aiState);
+  });
+
+  stream.on("textDelta", (delta) => {
+    if (delta.value != null) {
+      appendToLastMessage(delta.value, aiState);
+    }
+  });
+
+  stream.on("toolCallDelta", (delta, snapshot) => {
+    if (delta.type != "code_interpreter" || !delta.code_interpreter) {
+      isCodeContext = false;
+    } else {
+      const currentInput = delta.code_interpreter.input;
+
+      if (!isCodeContext && typeof currentInput === "string") {
+        isCodeContext = true;
+        appendMessage("code", currentInput, aiState);
+      } else if (typeof currentInput === "string") {
+        appendToLastMessage(currentInput, aiState);
+      }
+    }
+  });
+
+  // EVENTS WITHOUT HANDLERS (RUN COMPLETED)
+  stream.on("event", (event) => {
+    if (event.event === "thread.run.completed") {
+      aiState.done({
+        ...aiState.get(),
+        generating: false,
+      });
+      console.log(getAIState("messages"));
+    }
+  });
 }
 
 export type UIState = {
@@ -108,19 +153,26 @@ export async function getUIStateFromAIState() {
    */
   const aiState = getAIState();
 
-  const uiStateMapping = aiState.messages.map((message: Message, index) => ({
-    id: `${aiState.threadId}-${index}`,
-    display:
-      message.role === "assistant" ? (
-        <BotMessage>
-          <Markdown>{message.text}</Markdown>
-        </BotMessage>
-      ) : message.role === "user" ? (
-        <UserMessage>{message.text}</UserMessage>
-      ) : message.role === "code" ? (
-        <CodeMessage>{formatCodeText(message.text)}</CodeMessage>
-      ) : null,
-  }));
+  const uiStateMapping = aiState.messages.map((message: Message) => {
+    const uiStateItem = {
+      id: `${aiState.threadId}-${message.id}`, // Combined id for uniqueness
+      display:
+        message.role === "assistant" ? (
+          <BotMessage key={message.id}>
+            <Markdown>{message.text}</Markdown>
+          </BotMessage>
+        ) : message.role === "user" ? (
+          <UserMessage key={message.id}>{message.text}</UserMessage>
+        ) : message.role === "code" ? (
+          <CodeMessage key={message.id}>
+            {formatCodeText(message.text)}
+          </CodeMessage>
+        ) : null,
+    };
+
+    console.log("Mapped UIState id:", uiStateItem.id);
+    return uiStateItem;
+  });
   return uiStateMapping;
 }
 
@@ -137,4 +189,50 @@ const formatCodeText = (text: string) => {
       {line}
     </div>
   ));
+};
+
+const appendToLastMessage = (additionalText: string, aiState) => {
+  /**
+   * Adds text from the current text or tool call delta to the latest message and updates the AI State
+   *
+   * @param {string} additionalText - The text to be added
+   * @param aiState - The current mutable AI State
+   *
+   * @returns undefined
+   */
+  const allMessages = aiState.get().messages;
+  const lastMessage = allMessages[allMessages.length - 1];
+  const updatedLastMessage = {
+    ...lastMessage,
+    text: lastMessage.text + additionalText,
+  };
+  const updatedMessages = [...allMessages.slice(0, -1), updatedLastMessage];
+
+  aiState.update({
+    ...aiState.get(),
+    messages: updatedMessages,
+  });
+};
+
+const appendMessage = (role: string, text: string, aiState) => {
+  /**
+   * Updates the AI State with a new Message object with the role and text from the stream
+   *
+   * @param {string} role - The role type of the message (assistant, code or user)
+   * @param {string} additionalText - text from the message stream
+   * @param aiState - the current mutable AI State
+   *
+   * @returns undefined
+   */
+  aiState.update({
+    ...aiState.get(),
+    messages: [
+      ...aiState.get().messages,
+      {
+        id: generateId(),
+        role: role,
+        text: text,
+      },
+    ],
+  });
 };
