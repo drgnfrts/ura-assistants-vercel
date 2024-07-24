@@ -6,6 +6,7 @@ import {
   getAIState,
   createStreamableUI,
   createStreamableValue,
+  StreamableValue,
 } from "ai/rsc";
 import { AssistantStream } from "openai/lib/AssistantStream";
 import {
@@ -15,13 +16,14 @@ import {
 } from "@/app/components/message-components";
 import Markdown from "react-markdown";
 import { generateId } from "ai";
+import { TempMessage } from "../components/temp-msg";
 
 const baseUrl = process.env.VERCEL_URL || "http://localhost:3000";
 
-export interface Message {
+export interface ResponseMessage {
   id: string;
   role: string;
-  text: string;
+  text: StreamableValue | string;
 }
 
 export async function createThread(aiState): Promise<void> {
@@ -58,8 +60,11 @@ export async function sendMessage(text: string) {
    * @returns None
    */
   const aiState = getMutableAIState<typeof AI>();
-  await appendMessage("user", text, aiState);
-
+  const status = createStreamableUI("thread.init");
+  const textStream = createStreamableValue("");
+  const textUIStream = createStreamableUI(
+    <TempMessage textStream={textStream.value} />
+  );
   if (getAIState().threadId == "") {
     await createThread(aiState);
     console.log(`threadId created is: ${getAIState("threadId")}`);
@@ -88,12 +93,12 @@ export async function sendMessage(text: string) {
 
   stream.on("textCreated", (content) => {
     isCodeContext = false;
-    appendMessage("assistant", "", aiState);
+    appendMessage("assistant", "", aiState, textStream);
   });
 
   stream.on("textDelta", (delta) => {
     if (delta.value != null) {
-      appendToLastMessage(delta.value, aiState);
+      appendToLastMessage(delta.value, aiState, textStream);
     }
   });
 
@@ -105,9 +110,9 @@ export async function sendMessage(text: string) {
 
       if (!isCodeContext && typeof currentInput === "string") {
         isCodeContext = true;
-        appendMessage("code", currentInput, aiState);
+        appendMessage("code", currentInput, aiState, textStream);
       } else if (typeof currentInput === "string") {
-        appendToLastMessage(currentInput, aiState);
+        appendToLastMessage(currentInput, aiState, textStream);
       }
     }
   });
@@ -119,9 +124,17 @@ export async function sendMessage(text: string) {
         ...aiState.get(),
         generating: false,
       });
+      console.log("******************* AI STATE ****************");
       console.log(getAIState("messages"));
+      textStream.done();
+      console.log(
+        "******************* FINAL TEXT STREAM VALUE ****************"
+      );
+      console.log(textStream.value);
     }
   });
+
+  return { id: generateId(), role: "tester", text: textStream.value };
 }
 
 export type UIState = {
@@ -133,6 +146,7 @@ export type AIState = {
   threadId: string;
   messages: Message[];
   generating: boolean;
+  role: string;
 };
 
 export const AI = createAI<AIState, UIState>({
@@ -191,7 +205,7 @@ const formatCodeText = (text: string) => {
   ));
 };
 
-const appendToLastMessage = (additionalText: string, aiState) => {
+const appendToLastMessage = (additionalText: string, aiState, textStream) => {
   /**
    * Adds text from the current text or tool call delta to the latest message and updates the AI State
    *
@@ -208,13 +222,14 @@ const appendToLastMessage = (additionalText: string, aiState) => {
   };
   const updatedMessages = [...allMessages.slice(0, -1), updatedLastMessage];
 
+  textStream.append(additionalText);
   aiState.update({
     ...aiState.get(),
     messages: updatedMessages,
   });
 };
 
-const appendMessage = (role: string, text: string, aiState) => {
+const appendMessage = (role: string, text: string, aiState, textStream) => {
   /**
    * Updates the AI State with a new Message object with the role and text from the stream
    *
@@ -224,6 +239,9 @@ const appendMessage = (role: string, text: string, aiState) => {
    *
    * @returns undefined
    */
+  console.log("******************* OLD TEXT STREAM VALUE ****************");
+  console.log(textStream.value.curr);
+  textStream.update(text);
   aiState.update({
     ...aiState.get(),
     messages: [

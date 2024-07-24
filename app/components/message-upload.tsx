@@ -2,14 +2,16 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Icons } from "./icons";
-import { useActions, useUIState } from "ai/rsc";
+import { useActions, useUIState, readStreamableValue } from "ai/rsc";
+import { ResponseMessage } from "../lib/actions";
+import { TempMessage } from "./temp-msg";
 
 const MessageForm = () => {
   // const [_, setMessages] = useUIState<typeof AI>();
   const { sendMessage } = useActions();
   const [userInput, setUserInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [messages, setMessages] = useUIState();
+  const [messages, setMessages] = useState<ResponseMessage[]>([]);
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -30,31 +32,43 @@ const MessageForm = () => {
     const newInput = userInput.trim();
     setUserInput("");
     const response = await sendMessage(userInput);
+    setMessages((currentMessages) => [...currentMessages, response]);
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="relative flex items-start w-full items-center grow overflow-hidden"
-    >
-      <textarea
-        className="flex-grow items-center w-full placeholder:text-gray-200 bg-neutral-900 p-3 resize-none max-h-50vh focus-within:outline-none sm:text-sm overflow-hidden"
-        ref={textareaRef}
-        // className="min-h-[60px] w-full resize-none bg-transparent px-4 py-1 focus-within:outline-none sm:text-sm"
-        rows={1}
-        value={userInput}
-        onChange={(e) => setUserInput(e.target.value)}
-        placeholder="Enter your question"
-        // disabled={generating}
-      />
-      <button
-        type="submit"
-        className="flex-0 ml-2 cursor-pointer"
-        // disabled={generating}
+    <div>
+      <div className="flex flex-col overflow-y-scroll">
+        <div>
+          {messages.map((message) => (
+            <div key={message.id} className="flex flex-col gap-1 border-b p-2">
+              <TempMessage textStream={message.text} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <form
+        onSubmit={handleSubmit}
+        className="relative flex items-start w-full items-center grow overflow-hidden"
       >
-        <Icons.arrowRight className="text-gray-200 hover:text-white transition-colors duration-200 ease-in-out" />
-      </button>
-    </form>
+        <textarea
+          className="flex-grow items-center w-full placeholder:text-gray-200 bg-neutral-900 p-3 resize-none max-h-50vh focus-within:outline-none sm:text-sm overflow-hidden"
+          ref={textareaRef}
+          // className="min-h-[60px] w-full resize-none bg-transparent px-4 py-1 focus-within:outline-none sm:text-sm"
+          rows={1}
+          value={userInput}
+          onChange={(e) => setUserInput(e.target.value)}
+          placeholder="Enter your question"
+          // disabled={generating}
+        />
+        <button
+          type="submit"
+          className="flex-0 ml-2 cursor-pointer"
+          // disabled={generating}
+        >
+          <Icons.arrowRight className="text-gray-200 hover:text-white transition-colors duration-200 ease-in-out" />
+        </button>
+      </form>
+    </div>
   );
 };
 

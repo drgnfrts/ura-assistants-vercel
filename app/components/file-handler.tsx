@@ -51,7 +51,6 @@ export default function FileHandler() {
       if (response.ok) {
         const result = await response.json();
         setFile(result);
-        createThread();
       } else {
         console.error("File upload failed:", response.statusText);
       }

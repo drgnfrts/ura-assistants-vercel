@@ -1,14 +1,15 @@
 "use client";
-import { Button } from "@/app/components/button";
-import { Icons } from "@/app/components/icons";
-import { Input } from "@/app/components/input";
+// import { Button } from "@/app/components/button";
+// import { Icons } from "@/app/components/icons";
+// import { Input } from "@/app/components/input";
 // import { readDataStream } from "@/lib/read-data-stream";
 import { Message } from "ai/react";
-import { ChangeEvent, FormEvent, useRef, useState } from "react";
+import { useState } from "react";
 // import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
 import InputBox from "@/app/components/input-box";
 import { useUIState } from "ai/rsc";
+import { TempMessage } from "./components/temp-msg";
 
 const roleToColorMap: Record<Message["role"], string> = {
   system: "lightred",
@@ -62,11 +63,12 @@ export default function Chat() {
   const [error, setError] = useState<unknown | undefined>(undefined);
   // const [status, setStatus] = useState<AssistantStatus>("awaiting_message");
   // const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [messages, setMessages] = useUIState();
-  console.log(messages.length);
-  for (let i = 0; i < messages.length; i++) {
-    console.log("UIState id:", messages[i].id);
-  }
+  //const [messages, setMessages] = useUIState();
+  const [messages, setMessages] = useState("");
+  // console.log(messages.length);
+  // for (let i = 0; i < messages.length; i++) {
+  //   console.log("UIState id:", messages[i].id);
+  // }
 
   return (
     <main className="flex min-h-screen flex-col p-24">
@@ -82,14 +84,7 @@ export default function Chat() {
           </div>
         )}
 
-        {messages && messages.length > 0 ? (
-          messages.map((m) => {
-            console.log("message generating", m.id);
-            return <div key={m.id}>{m.display}</div>;
-          })
-        ) : (
-          <p className="text-white">No messages to display</p>
-        )}
+        <p className="text-white">No messages to display</p>
         <InputBox />
       </div>
     </main>
