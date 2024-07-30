@@ -8,8 +8,8 @@ import { useState } from "react";
 // import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
 import InputBox from "@/app/components/input-box";
-import { useUIState } from "ai/rsc";
-import { TempMessage } from "./components/temp-msg";
+import { useScrollAnchor } from "./components/use-scroll-anchor";
+import { ChatDisplay } from "./components/chat-display";
 
 const roleToColorMap: Record<Message["role"], string> = {
   system: "lightred",
@@ -70,22 +70,21 @@ export default function Chat() {
   //   console.log("UIState id:", messages[i].id);
   // }
 
-  return (
-    <main className="flex min-h-screen flex-col p-24">
-      <div className="flex flex-col w-full max-w-xl mx-auto stretch">
-        <h1 className="text-3xl text-zinc-100 font-extrabold pb-4">
-          Feedback Analytics Assistant
-        </h1>
-        {error != null && (
-          <div className="relative bg-red-500 text-white px-6 py-4 rounded-md">
-            <span className="block sm:inline">
-              Error: {(error as any).toString()}
-            </span>
-          </div>
-        )}
+  const { messagesRef, scrollRef, visibilityRef, isAtBottom, scrollToBottom } =
+    useScrollAnchor();
 
-        <p className="text-white">No messages to display</p>
-        <InputBox />
+  return (
+    <main className="relative flex flex-col min-h-screen items-center p-24 overflow-hidden">
+      <h1 className="text-2xl text-zinc-100 font-extrabold pb-4">
+        Feedback Analytics Assistant
+      </h1>
+      <div className="flex flex-col w-full max-w-2xl flex-grow overflow-hidden mt-4">
+        <div className="flex-grow overflow-y-auto max-h-[calc(100vh-20rem)]">
+          <ChatDisplay />
+        </div>
+        <div className="mt-4 w-full flex-shrink-0">
+          <InputBox />
+        </div>
       </div>
     </main>
   );
