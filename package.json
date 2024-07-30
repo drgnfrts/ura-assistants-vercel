@@ -23,6 +23,8 @@
     "react": "^18",
     "react-dom": "^18",
     "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
+    "remark-math": "^6.0.0",
     "tailwind-merge": "^2.3.0",
     "z": "^1.0.1",
     "zod-form-data": "^2.0.2"

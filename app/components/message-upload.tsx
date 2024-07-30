@@ -5,13 +5,15 @@ import { Icons } from "./icons";
 import { useActions, useUIState, readStreamableValue } from "ai/rsc";
 import { ResponseMessage } from "../lib/actions";
 import { TempMessage } from "./temp-msg";
+import { type AI } from "@/app/lib/actions";
+import { generateId } from "ai";
 
 const MessageForm = () => {
   // const [_, setMessages] = useUIState<typeof AI>();
   const { sendMessage } = useActions();
   const [userInput, setUserInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [messages, setMessages] = useState<ResponseMessage[]>([]);
+  const [messages, setMessages] = useUIState<typeof AI>();
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -31,7 +33,14 @@ const MessageForm = () => {
     if (!userInput.trim()) return;
     const newInput = userInput.trim();
     setUserInput("");
-    const response = await sendMessage(userInput);
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      {
+        id: generateId(),
+        display: <TempMessage textStream={newInput} />,
+      },
+    ]);
+    const response = await sendMessage(newInput);
     setMessages((currentMessages) => [...currentMessages, response]);
   };
 
@@ -41,7 +50,7 @@ const MessageForm = () => {
         <div>
           {messages.map((message) => (
             <div key={message.id} className="flex flex-col gap-1 border-b p-2">
-              <TempMessage textStream={message.text} />
+              {message.display}
             </div>
           ))}
         </div>

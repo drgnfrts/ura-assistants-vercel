@@ -1,6 +1,8 @@
 "use client";
 
+import { FC, memo } from "react";
 import { StreamableValue, useStreamableValue } from "ai/rsc";
+import Markdown from "react-markdown";
 
 export function TempMessage({
   textStream,
@@ -12,5 +14,9 @@ export function TempMessage({
       ? textStream
       : useStreamableValue(textStream)[0];
 
-  return <div>{text}</div>;
+  return (
+    <div>
+      <Markdown>{text}</Markdown>
+    </div>
+  );
 }

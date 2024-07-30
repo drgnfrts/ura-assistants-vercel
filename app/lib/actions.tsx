@@ -65,76 +65,102 @@ export async function sendMessage(text: string) {
   const textUIStream = createStreamableUI(
     <TempMessage textStream={textStream.value} />
   );
-  if (getAIState().threadId == "") {
-    await createThread(aiState);
-    console.log(`threadId created is: ${getAIState("threadId")}`);
-  }
 
-  const threadId = getAIState("threadId");
-  console.log(`updated, threadId is ${threadId} `);
-
-  const response = await fetch(`${baseUrl}/api/threads/${threadId}/messages`, {
-    method: "POST",
-    body: JSON.stringify({
-      content: text,
-    }),
-  });
-  if (!response.ok) {
-    throw new Error("Network response was not ok");
-  }
-  if (!response.body) {
-    throw new Error("Response body is null");
-  }
-
-  // STREAM HANDLERS (Sean, when Vercel comes up with useAssistant / assistantResponse integrations for Code Interpreter, you won't need these anymore - in fact you can probably throw away the POST requests as well)
-
-  const stream = AssistantStream.fromReadableStream(response.body);
-  let isCodeContext = false;
-
-  stream.on("textCreated", (content) => {
-    isCodeContext = false;
-    appendMessage("assistant", "", aiState, textStream);
-  });
-
-  stream.on("textDelta", (delta) => {
-    if (delta.value != null) {
-      appendToLastMessage(delta.value, aiState, textStream);
+  (async () => {
+    if (getAIState().threadId == "") {
+      await createThread(aiState);
+      console.log(`threadId created is: ${getAIState("threadId")}`);
     }
-  });
 
-  stream.on("toolCallDelta", (delta, snapshot) => {
-    if (delta.type != "code_interpreter" || !delta.code_interpreter) {
-      isCodeContext = false;
-    } else {
-      const currentInput = delta.code_interpreter.input;
+    aiState.update({
+      ...aiState.get(),
+      messages: [
+        ...aiState.get().messages,
+        {
+          id: generateId(),
+          role: "user",
+          text: text,
+        },
+      ],
+    });
 
-      if (!isCodeContext && typeof currentInput === "string") {
-        isCodeContext = true;
-        appendMessage("code", currentInput, aiState, textStream);
-      } else if (typeof currentInput === "string") {
-        appendToLastMessage(currentInput, aiState, textStream);
+    const threadId = getAIState("threadId");
+    console.log(`updated, threadId is ${threadId} `);
+
+    const response = await fetch(
+      `${baseUrl}/api/threads/${threadId}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          content: text,
+        }),
       }
+    );
+    if (!response.ok) {
+      throw new Error("Network response was not ok");
     }
-  });
-
-  // EVENTS WITHOUT HANDLERS (RUN COMPLETED)
-  stream.on("event", (event) => {
-    if (event.event === "thread.run.completed") {
-      aiState.done({
-        ...aiState.get(),
-        generating: false,
-      });
-      console.log("******************* AI STATE ****************");
-      console.log(getAIState("messages"));
-      textStream.done();
-      console.log(
-        "******************* FINAL TEXT STREAM VALUE ****************"
-      );
-      console.log(textStream.value);
+    if (!response.body) {
+      throw new Error("Response body is null");
     }
-  });
 
-  return { id: generateId(), role: "tester", text: textStream.value };
+    // STREAM HANDLERS (Sean, when Vercel comes up with useAssistant / assistantResponse integrations for Code Interpreter, you won't need these anymore - in fact you can probably throw away the POST requests as well)
+
+    const stream = AssistantStream.fromReadableStream(response.body);
+    let isCodeContext = false;
+    let lineNumber = 1;
+
+    stream.on("textCreated", (content) => {
+      isCodeContext = false;
+      lineNumber = 1;
+      appendMessage("assistant", "", aiState, textStream);
+    });
+
+    stream.on("textDelta", (delta) => {
+      if (delta.value != null) {
+        appendToLastMessage(delta.value, aiState, textStream);
+      }
+    });
+
+    stream.on("toolCallDelta", (delta, snapshot) => {
+      if (delta.type != "code_interpreter" || !delta.code_interpreter) {
+        isCodeContext = false;
+      } else {
+        let currentInput = delta.code_interpreter.input;
+        currentInput = currentInput.replace(/\n/g, (match) => {
+          // Increment lineNumber after a successful replacement
+          return `\n    ${lineNumber++}. `;
+        });
+        console.log(lineNumber);
+
+        if (!isCodeContext && typeof currentInput === "string") {
+          isCodeContext = true;
+          appendMessage("code", currentInput, aiState, textStream);
+        } else if (typeof currentInput === "string") {
+          appendToLastMessage(currentInput, aiState, textStream);
+        }
+      }
+    });
+
+    // EVENTS WITHOUT HANDLERS (RUN COMPLETED)
+    stream.on("event", (event) => {
+      if (event.event === "thread.run.completed") {
+        aiState.done({
+          ...aiState.get(),
+          generating: false,
+        });
+        console.log("******************* AI STATE ****************");
+        console.log(getAIState("messages"));
+        textStream.done();
+        console.log(
+          "******************* FINAL TEXT STREAM VALUE ****************"
+        );
+        console.log(textStream.value);
+        textUIStream.done();
+      }
+    });
+  })();
+
+  return { id: generateId(), display: textUIStream.value };
 }
 
 export type UIState = {
@@ -190,21 +216,6 @@ export async function getUIStateFromAIState() {
   return uiStateMapping;
 }
 
-const formatCodeText = (text: string) => {
-  /**
-   * Helper function to format the generated code
-   *
-   * @param {string} text - Code to be formatted.
-   * @returns Formatted text with the line number in front of each new line
-   */
-  return text.split("\n").map((line, index) => (
-    <div key={index}>
-      <span>{`${index + 1}. `}</span>
-      {line}
-    </div>
-  ));
-};
-
 const appendToLastMessage = (additionalText: string, aiState, textStream) => {
   /**
    * Adds text from the current text or tool call delta to the latest message and updates the AI State
@@ -241,7 +252,8 @@ const appendMessage = (role: string, text: string, aiState, textStream) => {
    */
   console.log("******************* OLD TEXT STREAM VALUE ****************");
   console.log(textStream.value.curr);
-  textStream.update(text);
+  textStream.append(`\n \n >${role} \n`);
+  textStream.append(text);
   aiState.update({
     ...aiState.get(),
     messages: [
