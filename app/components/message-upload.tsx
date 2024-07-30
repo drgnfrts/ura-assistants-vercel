@@ -45,39 +45,28 @@ const MessageForm = () => {
   };
 
   return (
-    <div>
-      <div className="flex flex-col overflow-y-scroll">
-        <div>
-          {messages.map((message) => (
-            <div key={message.id} className="flex flex-col gap-1 border-b p-2">
-              {message.display}
-            </div>
-          ))}
-        </div>
-      </div>
-      <form
-        onSubmit={handleSubmit}
-        className="relative flex items-start w-full items-center grow overflow-hidden"
+    <form
+      onSubmit={handleSubmit}
+      className="relative flex items-start w-full items-center grow overflow-hidden"
+    >
+      <textarea
+        className="flex-grow items-center w-full placeholder:text-gray-200 bg-neutral-900 p-3 resize-none max-h-50vh focus-within:outline-none sm:text-sm overflow-hidden"
+        ref={textareaRef}
+        // className="min-h-[60px] w-full resize-none bg-transparent px-4 py-1 focus-within:outline-none sm:text-sm"
+        rows={1}
+        value={userInput}
+        onChange={(e) => setUserInput(e.target.value)}
+        placeholder="Enter your question"
+        // disabled={generating}
+      />
+      <button
+        type="submit"
+        className="flex-0 ml-2 cursor-pointer"
+        // disabled={generating}
       >
-        <textarea
-          className="flex-grow items-center w-full placeholder:text-gray-200 bg-neutral-900 p-3 resize-none max-h-50vh focus-within:outline-none sm:text-sm overflow-hidden"
-          ref={textareaRef}
-          // className="min-h-[60px] w-full resize-none bg-transparent px-4 py-1 focus-within:outline-none sm:text-sm"
-          rows={1}
-          value={userInput}
-          onChange={(e) => setUserInput(e.target.value)}
-          placeholder="Enter your question"
-          // disabled={generating}
-        />
-        <button
-          type="submit"
-          className="flex-0 ml-2 cursor-pointer"
-          // disabled={generating}
-        >
-          <Icons.arrowRight className="text-gray-200 hover:text-white transition-colors duration-200 ease-in-out" />
-        </button>
-      </form>
-    </div>
+        <Icons.arrowRight className="text-gray-200 hover:text-white transition-colors duration-200 ease-in-out" />
+      </button>
+    </form>
   );
 };
 

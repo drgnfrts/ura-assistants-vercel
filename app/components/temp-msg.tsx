@@ -15,7 +15,7 @@ export function TempMessage({
       : useStreamableValue(textStream)[0];
 
   return (
-    <div>
+    <div className="text-white text-wrap break-words">
       <Markdown>{text}</Markdown>
     </div>
   );
