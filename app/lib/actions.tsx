@@ -66,6 +66,8 @@ export async function sendMessage(text: string) {
     <TempMessage textStream={textStream.value} />
   );
 
+  const uiStream = createStreamableUI();
+
   (async () => {
     if (getAIState().threadId == "") {
       await createThread(aiState);
@@ -110,8 +112,11 @@ export async function sendMessage(text: string) {
     let lineNumber = 1;
 
     stream.on("textCreated", (content) => {
-      isCodeContext = false;
-      lineNumber = 1;
+      if (isCodeContext) {
+        appendToLastMessage("\n```", aiState, textStream);
+        isCodeContext = false;
+        lineNumber = 1;
+      }
       appendMessage("assistant", "", aiState, textStream);
     });
 
@@ -125,12 +130,19 @@ export async function sendMessage(text: string) {
       if (delta.type != "code_interpreter" || !delta.code_interpreter) {
         isCodeContext = false;
       } else {
-        let currentInput = delta.code_interpreter.input;
-        currentInput = currentInput.replace(/\n/g, (match) => {
-          // Increment lineNumber after a successful replacement
-          return `\n    ${lineNumber++}. `;
-        });
-        console.log(lineNumber);
+        let currentInput = "";
+        if (!isCodeContext) {
+          currentInput =
+            "```" + `\n    ${lineNumber++}. ${delta.code_interpreter.input}`;
+        } else {
+          currentInput = delta.code_interpreter.input.replace(
+            /\n/g,
+            (match) => {
+              // Increment lineNumber after a successful replacement
+              return `\n    ${lineNumber++}. `;
+            }
+          );
+        }
 
         if (!isCodeContext && typeof currentInput === "string") {
           isCodeContext = true;
