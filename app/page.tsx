@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import InputBox from "@/app/components/input-box";
 import { useScrollAnchor } from "./components/use-scroll-anchor";
 import { ChatDisplay } from "./components/chat-display";
+import { cn } from "./components/lib/utils";
 
 const roleToColorMap: Record<Message["role"], string> = {
   system: "lightred",
@@ -74,19 +75,16 @@ export default function Chat() {
     useScrollAnchor();
 
   return (
-    <main className="relative flex flex-col min-h-screen items-center p-24 overflow-hidden">
-      <h1 className="text-2xl text-zinc-100 font-extrabold pb-4">
-        Feedback Analytics Assistant
-      </h1>
-      <div className="flex flex-col w-full max-w-2xl flex-grow overflow-hidden mt-4">
-        <div className="flex-grow overflow-y-auto max-h-[calc(100vh-20rem)]">
-          <ChatDisplay />
-        </div>
-        <div className="mt-4 w-full flex-shrink-0">
-          <InputBox />
-        </div>
+    <div
+      className="flex group w-full overflow-auto justify-center flex-grow"
+      ref={scrollRef}
+    >
+      <div className={"pb-[200px] pt-4 md:pt-10"} ref={messagesRef}>
+        <ChatDisplay />
+        <div className="w-full h-px" ref={visibilityRef} />
       </div>
-    </main>
+      <InputBox />
+    </div>
   );
 }
 
